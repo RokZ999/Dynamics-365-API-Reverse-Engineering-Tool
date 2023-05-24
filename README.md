@@ -15,8 +15,7 @@ These instructions will help you get a copy of the project up and running on you
 ### 📋 Prerequisites
 
 You'll need to have the following installed:
-- Python (version 3.7 or higher)
-- Tkinter (python libary)
+- Python (version 3.11 or higher)
 
 ### 🛠️ Installation
 
