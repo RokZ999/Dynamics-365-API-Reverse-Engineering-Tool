@@ -44,8 +44,3 @@ Contributions, issues, and feature requests are welcome! Feel free to check [iss
 ## 🌟 Show your support
 
 Give a ⭐️ if this project helped you!
-
-
-## 📧 Contact
-
-If you have any questions, please feel free to contact me at zabret.rok14@gmail.com
