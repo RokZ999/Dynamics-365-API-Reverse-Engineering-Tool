@@ -6,7 +6,7 @@ import threading
 import queue
 from tkinter import messagebox
 
-THREAD_LIMIT = 5
+THREAD_LIMIT = 10
 
 
 def clear_directory(dir_path):
@@ -38,36 +38,38 @@ def get_api_json(url, headers):
 
 
 def refill_blacklist(api_url, cookie):
-    try:
-        blacklist_file = 'blacklist.txt'
-        clear_file(blacklist_file)
-        blacklist_candidates = queue.Queue()
+    if validation(api_url, cookie):
+        try:
 
-        headers = {
-            "Cookie": f"DynamicsOwinAuth={cookie}"
-        }
+            blacklist_file = 'blacklist.txt'
+            clear_file(blacklist_file)
+            blacklist_candidates = queue.Queue()
 
-        response_json = get_api_json(api_url, headers)
-        urls = extract_matching_urls(response_json, "")
+            headers = {
+                "Cookie": f"DynamicsOwinAuth={cookie}"
+            }
 
-        semaphore = threading.Semaphore(THREAD_LIMIT)
+            response_json = get_api_json(api_url, headers)
+            urls = extract_matching_urls(response_json, "")
 
-        threads = []
-        for x in urls:
-            t = threading.Thread(target=worker, args=(api_url, x, headers, blacklist_candidates, semaphore))
-            t.start()
-            threads.append(t)
+            semaphore = threading.Semaphore(THREAD_LIMIT)
 
-        for t in threads:
-            t.join()
+            threads = []
+            for x in urls:
+                t = threading.Thread(target=worker, args=(api_url, x, headers, blacklist_candidates, semaphore))
+                t.start()
+                threads.append(t)
 
-        with open(blacklist_file, 'w') as f:
-            while not blacklist_candidates.empty():
-                f.write(blacklist_candidates.get() + '\n')
+            for t in threads:
+                t.join()
 
-        messagebox.showinfo("Success", "Data blacklist refilled.")
-    except Exception as e:
-        messagebox.showerror("Error", str(e))
+            with open(blacklist_file, 'w') as f:
+                while not blacklist_candidates.empty():
+                    f.write(blacklist_candidates.get() + '\n')
+
+            messagebox.showinfo("Success", "Data blacklist refilled.")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
 
 
 def worker(api_url, x, headers, blacklist_candidates, semaphore):
@@ -84,34 +86,36 @@ def extract_matching_urls(response_json, search_param):
 
 
 def get_data(api_url, cookie, entity_search_param, search_param_file):
-    try:
-        blacklist = set(line.strip() for line in open('blacklist.txt'))
+    if validation(api_url, cookie):
+        try:
+            clear_directory('result')
+            blacklist = set(line.strip() for line in open('blacklist.txt'))
 
-        save_data_from_last_run(api_url, cookie, entity_search_param, search_param_file)
-        headers = {
-            "Cookie": f"DynamicsOwinAuth={cookie}"
-        }
+            save_data_from_last_run(api_url, cookie, entity_search_param, search_param_file)
+            headers = {
+                "Cookie": f"DynamicsOwinAuth={cookie}"
+            }
 
-        response_json = get_api_json(api_url, headers)
-        urls = extract_matching_urls(response_json, entity_search_param)
+            response_json = get_api_json(api_url, headers)
+            urls = extract_matching_urls(response_json, entity_search_param)
 
-        urls = [url for url in urls if url not in blacklist]
+            urls = [url for url in urls if url not in blacklist]
 
-        semaphore = threading.Semaphore(THREAD_LIMIT)
+            semaphore = threading.Semaphore(THREAD_LIMIT)
 
-        threads = []
-        for i, url in enumerate(urls):
-            t = threading.Thread(target=save_json_to_file,
-                                 args=(api_url, url, headers, search_param_file, i, semaphore))
-            t.start()
-            threads.append(t)
+            threads = []
+            for i, url in enumerate(urls):
+                t = threading.Thread(target=save_json_to_file,
+                                     args=(api_url, url, headers, search_param_file, i, semaphore))
+                t.start()
+                threads.append(t)
 
-        for t in threads:
-            t.join()
+            for t in threads:
+                t.join()
 
-        messagebox.showinfo("Success", "Data saved successfully.")
-    except Exception as e:
-        messagebox.showerror("Error", str(e))
+            messagebox.showinfo("All endpoints searched")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
 
 
 def save_json_to_file(api_url, url, headers, search_parm_inside_file, i, semaphore):
@@ -135,7 +139,8 @@ def load_data_from_last_run(filename):
     try:
         with open(filename, "r") as f:
             if os.stat(filename).st_size == 0:
-                save_data_from_last_run("", "", "", "")
+                save_data_from_last_run("", "", "", "", 5)
+                data = json.load(f)
             else:
                 data = json.load(f)
         return data
@@ -144,13 +149,22 @@ def load_data_from_last_run(filename):
         return None
 
 
-def save_data_from_last_run(api_url, cookie, entity_search_param, search_param_file):
+def save_data_from_last_run(api_url, cookie, entity_search_param, search_param_file, thread_number):
     data = {
         'api_url': api_url,
         'cookie': cookie,
         'entity_search_param': entity_search_param,
-        'search_param_file': search_param_file
+        'search_param_file': search_param_file,
+        'thread': thread_number
     }
 
     with open('last_run_data.json', 'w') as f:
         json.dump(data, f)
+
+def validation(url,cookie):
+    if len(cookie) < 1 or len(url) < 1:
+        messagebox.showerror("Error","API url & Cookie are mandatory fields")
+        return False
+    if '/data' not in url:
+        messagebox.showerror("Error","The url should contains /data\nExample: https://rokz.dynamics.com/data")
+        return False
