@@ -62,14 +62,16 @@ def proces_request_fetch_click():
     cookie_str = cookie.get()
     entity_search_param_str = entity_search_param.get()
     search_param_file_str = search_param_file.get()
+    thread_number_int = thread_number.get()
     get_data(api_url_str, cookie_str,
-             entity_search_param_str, search_param_file_str)
+             entity_search_param_str, search_param_file_str, thread_number_int)
 
 
 def process_request_blacklist_click():
     api_url_str = api_url.get()
     cookie_str = cookie.get()
-    refill_blacklist(api_url_str, cookie_str)
+    thread_number_int = thread_number.get()
+    refill_blacklist(api_url_str, cookie_str, thread_number_int)
 
 
 fetch_button = tk.Button(
