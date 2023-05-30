@@ -6,10 +6,10 @@ import threading
 import queue
 from tkinter import messagebox
 
-THREAD_LIMIT = 10
-
-
-def clear_directory(dir_path):
+def clear_or_create_directory(dir_path):
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+        print(f"Created directory: {dir_path}")
     files = glob.glob(dir_path + "/*")
     for file in files:
         try:
@@ -18,9 +18,10 @@ def clear_directory(dir_path):
             print(f"Error: {file} : {e.strerror}")
 
 
-def clear_file(file_path):
+def clear_or_create_file(file_path):
     try:
-        open(file_path, 'w').close()
+        with open(file_path, 'w+') as file:
+            file.close()
     except OSError as e:
         print(f"Error: {file_path} : {e.strerror}")
 
@@ -37,12 +38,11 @@ def get_api_json(url, headers):
         raise requests.exceptions.HTTPError(f"Failed to get data, status code: {response.status_code}")
 
 
-def refill_blacklist(api_url, cookie):
-    if validation(api_url, cookie):
+def refill_blacklist(api_url, cookie, thread_number_int):
+    if validation(api_url, cookie,thread_number_int):
         try:
-
             blacklist_file = 'blacklist.txt'
-            clear_file(blacklist_file)
+            clear_or_create_file(blacklist_file)
             blacklist_candidates = queue.Queue()
 
             headers = {
@@ -52,7 +52,7 @@ def refill_blacklist(api_url, cookie):
             response_json = get_api_json(api_url, headers)
             urls = extract_matching_urls(response_json, "")
 
-            semaphore = threading.Semaphore(THREAD_LIMIT)
+            semaphore = threading.Semaphore(thread_number_int)
 
             threads = []
             for x in urls:
@@ -85,13 +85,13 @@ def extract_matching_urls(response_json, search_param):
     return [item['url'] for item in response_json['value'] if search_param in item['url']]
 
 
-def get_data(api_url, cookie, entity_search_param, search_param_file):
-    if validation(api_url, cookie):
+def get_data(api_url, cookie, entity_search_param, search_param_file, thread_number_int):
+    if validation(api_url, cookie, thread_number_int):
         try:
-            clear_directory('result')
+            clear_or_create_directory('result')
             blacklist = set(line.strip() for line in open('blacklist.txt'))
 
-            save_data_from_last_run(api_url, cookie, entity_search_param, search_param_file)
+            save_data_from_last_run(api_url, cookie, entity_search_param, search_param_file, thread_number_int)
             headers = {
                 "Cookie": f"DynamicsOwinAuth={cookie}"
             }
@@ -101,7 +101,7 @@ def get_data(api_url, cookie, entity_search_param, search_param_file):
 
             urls = [url for url in urls if url not in blacklist]
 
-            semaphore = threading.Semaphore(THREAD_LIMIT)
+            semaphore = threading.Semaphore(thread_number_int)
 
             threads = []
             for i, url in enumerate(urls):
@@ -161,10 +161,16 @@ def save_data_from_last_run(api_url, cookie, entity_search_param, search_param_f
     with open('last_run_data.json', 'w') as f:
         json.dump(data, f)
 
-def validation(url,cookie):
-    if len(cookie) < 1 or len(url) < 1:
-        messagebox.showerror("Error","API url & Cookie are mandatory fields")
+
+def validation(url, cookie, thread_number_int):
+    if len(cookie) < 1 or len(url) < 1 or len(str(thread_number_int)) < 1:
+        messagebox.showerror("Error", "API url, Cookie, Threads are mandatory fields")
         return False
-    if '/data' not in url:
-        messagebox.showerror("Error","The url should contains /data\nExample: https://rokz.dynamics.com/data")
+    elif '/data' not in url:
+        messagebox.showerror("Error", "The url should contains /data\nExample: https://rokz.dynamics.com/data")
         return False
+    elif thread_number_int < 1:
+        messagebox.showerror("Error", "The number of threads must be greater than 0")
+        return False
+    else:
+        return True
