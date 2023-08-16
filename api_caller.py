@@ -82,7 +82,7 @@ def worker(api_url, x, headers, blacklist_candidates, semaphore):
 
 
 def extract_matching_urls(response_json, search_param):
-    return [item['url'] for item in response_json['value'] if search_param in item['url']]
+    return [item['url'] for item in response_json['value'] if search_param in item['url'].lower()]
 
 
 def get_data(api_url, cookie, entity_search_param, search_param_file, thread_number_int):
